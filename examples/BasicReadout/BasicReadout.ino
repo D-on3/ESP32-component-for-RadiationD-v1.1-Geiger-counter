@@ -1,6 +1,10 @@
 #include <RadiationD.h>
 
-constexpr uint8_t GEIGER_PIN = 4;
+#if defined(ARDUINO_ARCH_ESP8266)
+constexpr uint8_t GEIGER_PIN = 14;  // NodeMCU D5
+#else
+constexpr uint8_t GEIGER_PIN = 4;   // ESP32 GPIO 4
+#endif
 
 // For a J321 / M4011 tube, 153.8 CPM per micro-sievert per hour is a common
 // starting point. Confirm the correct factor for your tube before relying on

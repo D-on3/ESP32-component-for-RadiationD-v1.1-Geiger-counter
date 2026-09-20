@@ -2,12 +2,14 @@
 
 #include <Arduino.h>
 
-#if !defined(ARDUINO_ARCH_ESP32)
-#error "RadiationD supports ESP32 boards only."
-#endif
-
+#if defined(ARDUINO_ARCH_ESP32)
 #include <freertos/FreeRTOS.h>
 #include <esp_timer.h>
+#elif defined(ARDUINO_ARCH_ESP8266)
+#include <Ticker.h>
+#else
+#error "RadiationD supports ESP32 and ESP8266 Arduino boards only."
+#endif
 
 /**
  * Configuration for a RadiationD-v1.1 compatible Geiger-Muller counter.
@@ -30,10 +32,10 @@ struct RadiationDReading {
 };
 
 /**
- * Interrupt-driven RadiationD-v1.1 Geiger counter driver for ESP32 Arduino.
+ * Interrupt-driven RadiationD-v1.1 Geiger counter driver for ESP32 and ESP8266.
  *
- * The library samples the pulse counter once per second from an ESP timer, so
- * the sketch does not need to call an update function in loop().
+ * The library samples the pulse counter once per second with a platform timer,
+ * so the sketch does not need to call an update function in loop().
  */
 class RadiationD {
  public:
@@ -83,18 +85,25 @@ class RadiationD {
   void resetTotalCount();
 
  private:
+  static constexpr uint32_t SAMPLE_PERIOD_MS = 1000;
+#if defined(ARDUINO_ARCH_ESP32)
   static constexpr uint64_t SAMPLE_PERIOD_US = 1000000ULL;
-
   static void IRAM_ATTR pulseISR(void* arg);
   static void sampleTimerCallback(void* arg);
+#else
+  static void IRAM_ATTR pulseISR(void* arg);
+#endif
   void sample();
   void clearState();
 
   RadiationDConfig _config{};
   uint32_t* _samples = nullptr;
+#if defined(ARDUINO_ARCH_ESP32)
   esp_timer_handle_t _sampleTimer = nullptr;
-
   mutable portMUX_TYPE _mux = portMUX_INITIALIZER_UNLOCKED;
+#else
+  Ticker _sampleTicker;
+#endif
   volatile uint32_t _pulsesSinceSample = 0;
   uint64_t _totalCount = 0;
   uint64_t _countsInWindow = 0;
@@ -103,5 +112,5 @@ class RadiationD {
   float _cpm = 0.0f;
   float _usvH = 0.0f;
   bool _interruptAttached = false;
-  bool _running = false;
+  volatile bool _running = false;
 };

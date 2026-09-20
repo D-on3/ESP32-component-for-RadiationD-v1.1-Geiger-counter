@@ -1,5 +1,5 @@
-#if !defined(ARDUINO_ARCH_ESP32)
-#error "OLEDReadout is the ESP32 example. Use OLEDReadoutESP8266 for NodeMCU."
+#if !defined(ARDUINO_ARCH_ESP8266)
+#error "Select NodeMCU 1.0 (ESP-12E Module) or another ESP8266 board."
 #endif
 
 #include <Wire.h>
@@ -9,11 +9,10 @@
 
 #include <stdio.h>
 
-constexpr uint8_t GEIGER_PIN = 4;
-
-// Standard ESP32 I2C pins used by the 0.96-inch 128x64 SSD1306 module.
-constexpr uint8_t OLED_SDA = 21;
-constexpr uint8_t OLED_SCL = 22;
+// NodeMCU v3 pin names: D5 is GPIO14, D2 is GPIO4, and D1 is GPIO5.
+constexpr uint8_t GEIGER_PIN = D5;
+constexpr uint8_t OLED_SDA = D2;
+constexpr uint8_t OLED_SCL = D1;
 constexpr uint8_t OLED_ADDRESS = 0x3C;
 constexpr int8_t OLED_RESET = -1;
 constexpr uint8_t SCREEN_WIDTH = 128;
