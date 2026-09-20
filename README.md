@@ -46,6 +46,26 @@ signal.
 Alternatively, clone the repository into your Arduino sketchbook's
 `libraries/RadiationD` directory.
 
+## OLED readout (SSD1306, 128x64)
+
+The `OLEDReadout` example uses the same 0.96-inch I2C SSD1306 display layout
+as the [reference tutorial](https://randomnerdtutorials.com/micropython-oled-display-esp32-esp8266/):
+a 128x64 display at address `0x3C`, with the ESP32's default I2C pins.
+
+| SSD1306 OLED | ESP32 |
+| --- | --- |
+| `VCC` / `VIN` | `3.3 V` |
+| `GND` | `GND` |
+| `SCL` | GPIO 22 |
+| `SDA` | GPIO 21 |
+
+Install **Adafruit SSD1306** and **Adafruit GFX Library** through Arduino IDE's
+Library Manager if they are not installed automatically. The display shows
+CPM, dose rate in **mSv/h** (`uSv/h / 1000`), averaging time, and total pulses.
+
+If the display remains blank, run an I2C scanner and change `OLED_ADDRESS` to
+`0x3D` when required by the module.
+
 ## Basic use
 
 ```cpp
