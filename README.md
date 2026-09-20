@@ -1,112 +1,107 @@
-# ESP-IDF Geiger Counter Component
+# RadiationD Arduino Library for ESP32
 
-A interrupt-driven ESP-IDF component for reading RadiationD-v1.1 Geiger-Müller counter with J321 (M4011) tube using the ESP32.
+An interrupt-driven Arduino library for **RadiationD-v1.1** and compatible
+Geiger-Muller counter boards used with an ESP32. It counts active-low pulses,
+calculates CPM, and converts the rolling average to a configurable dose rate in
+micro-sieverts per hour (uSv/h).
 
-You can find a detailed description [on my website](https://www.haraldkreuzer.net/en/news/measuring-radioactive-radiation-esp32-and-geiger-counter) 
-
-![RadiationD-v1.1](https://github.com/user-attachments/assets/4961b8a0-ea8c-455e-8cdc-52ee8da145a0)
-
-
-This component handles pulse counting via interrupts, calculates the radiation dose rate in **µSv/h**, and implements a **Rolling Average** algorithm to smooth out the stochastic nature of radioactive decay.
+This is an ESP32 Arduino library. The previous ESP-IDF component is retained
+unchanged in [`extras/esp-idf-legacy`](extras/esp-idf-legacy).
 
 ## Features
 
-* **Interrupt Driven:** Uses GPIO interrupts (Falling Edge) to capture pulses efficiently without blocking the CPU.
-* **Rolling Average:** Calculates CPM (Counts Per Minute) over a sliding time window (e.g., 60s or 300s) for stable readings.
-* **Thread Safe:** Uses `stdatomic` and a separate FreeRTOS task to process data safely.
-* **Configurable:** Easy setup for different tubes (Conversion Factor) and GPIO pins.
+- GPIO falling-edge interrupt: no polling and no `loop()` update call required.
+- ESP32 one-second background timer, so readings remain correct while the
+  sketch performs other work or uses `delay()`.
+- Configurable rolling average from 1 to 3600 seconds.
+- Thread-safe reading snapshot with CPM, uSv/h, total pulses, and current
+  filled averaging window.
+- Supports several independent `RadiationD` objects when each uses its own GPIO.
 
-## Hardware Setup
+## Wiring
 
-Most cheap Geiger counter kits (like the "RadiationD-v1.1" or generic CA-42 kits) have a 3-pin interface: `5V`, `GND`, and `VIN` (Signal).
+RadiationD-v1.1 type boards normally expose `5V`, `GND`, and `VIN`/`OUT`.
 
-* **5V:** Connect to 5V (or 3.3V if your module supports it).
-* **GND:** Connect to ESP32 GND.
-* **OUT/VIN (Signal):** Connect to any GPIO (e.g., GPIO 4).
+| RadiationD board | ESP32 |
+| --- | --- |
+| `GND` | `GND` |
+| `VIN` / `OUT` | A suitable GPIO input, for example GPIO 4 |
+| `5V` | 5 V supply, if required by the board |
 
-**Note:** The signal is usually **Active Low** (High normally, drops to Low on detection).
+The ESP32 GPIO is **3.3 V only**. If the counter's pulse output reaches 5 V,
+add a proper level shifter or resistor divider before connecting it to the
+ESP32. Always share ground between the module and ESP32.
 
-## Installation
+The pulse is expected to be active low, therefore the library attaches a
+falling-edge interrupt. Leave the internal pull-up disabled for a board with a
+normal push-pull output; enable it only for an open-drain or otherwise floating
+signal.
 
-1.  Create a `components` directory in your ESP-IDF project root.
-2.  Clone or copy this library into `components/geiger`.
+## Install in Arduino IDE
 
-Your project structure should look like this:
+1. Download this repository as a ZIP file.
+2. In Arduino IDE choose **Sketch -> Include Library -> Add .ZIP Library...**.
+3. Open **File -> Examples -> RadiationD -> BasicReadout**.
 
-```text
-my_project/
-├── main/
-│   ├── main.c
-│   └── CMakeLists.txt
-├── components/
-│   └── geiger/
-│       ├── include/
-│       │   └── geiger.h
-│       ├── geiger.c
-│       └── CMakeLists.txt
-└── ...
+Alternatively, clone the repository into your Arduino sketchbook's
+`libraries/RadiationD` directory.
+
+## Basic use
+
+```cpp
+#include <RadiationD.h>
+
+RadiationD geiger;
+
+void setup() {
+  Serial.begin(115200);
+  if (!geiger.begin(4, RadiationD::J321_CPM_PER_USVH, 60)) {
+    while (true) { delay(1000); }
+  }
+}
+
+void loop() {
+  RadiationDReading reading = geiger.getReading();
+  Serial.printf("%.2f CPM | %.4f uSv/h\n", reading.cpm, reading.usvH);
+  delay(5000);
+}
 ```
 
-3. Ensure your main/CMakeLists.txt requires the component (if not automatically detected):
+`begin()` starts an ESP32 timer that samples the interrupt counter every second.
+There is no `update()` call to add to `loop()`.
 
-```
-idf_component_register(SRCS "main.c"
-                       INCLUDE_DIRS "."
-                       REQUIRES geiger)
-```
+## Calibration and averaging
 
-## Usage
+The conversion factor is the number of counts per minute that corresponds to
+1 uSv/h:
 
-In your main.c:                       
-
-```
-    #include <stdio.h>
-    #include "freertos/FreeRTOS.h"
-    #include "freertos/task.h"
-    #include "driver/gpio.h" // Required for GPIO_NUM_X
-    #include "esp_log.h"
-
-    // Include the component
-    #include "geiger.h"
-
-    void app_main(void) {
-        // 1. Configure the library
-        geiger_config_t config = {
-            .gpio_pin = GPIO_NUM_4,       // The GPIO pin connected to the Geiger tube
-            .conversion_factor = 151.0f,  // Calibration: CPM required for 1 µSv/h (151 is typical for J305/SBM-20)
-            .rolling_avg_seconds = 60     // Averaging window (60s for fast response, 300s for high stability)
-        };
-
-        // 2. Initialize
-        geiger_init(&config);
-
-        // 3. Main Loop
-        while (1) {
-            float usvh = geiger_get_usvh();
-            float cpm = geiger_get_cpm();
-            
-            ESP_LOGI("APP", "Radiation: %.2f CPM | %.4f µSv/h", cpm, usvh);
-            
-            // Update every 5 seconds
-            vTaskDelay(pdMS_TO_TICKS(5000));
-        }
-    }
+```cpp
+geiger.begin(4, 153.8f, 300);  // pin, CPM per uSv/h, 5-minute average
 ```
 
-## Configuration Guide
+Typical starting values are shown below, but use the datasheet of the actual
+tube and validate it against a known reference instrument when accuracy matters.
 
-Conversion Factor
+| Tube | Typical CPM per uSv/h |
+| --- | ---: |
+| J321 / M4011 | 151-154 |
+| SBM-20 | about 175 |
+| LND-712 | about 123 |
 
-Different tubes have different sensitivities. The factor represents how many counts per minute (CPM) equal 1 µSv/h.
+A 60-second window reacts more quickly; a 300-second window gives a steadier
+background-radiation reading. During startup, the library calculates from the
+seconds collected so far instead of treating unfilled samples as zero.
 
-| Tube Model | Typical Factor | Notes |
-| -------- | ------- | ------- |
-| J321 / M4011 | ~151 - 153	|Glass tubes, common in cheap kits|
-| SBM-20 |  ~175| Soviet metal tube, very common|
-| LND-712 | ~123| Pancake tube, high sensitivity|
+## API
 
-## Rolling Average Period
+| Call | Purpose |
+| --- | --- |
+| `begin(pin, factor, seconds, pullup)` | Starts the counter and returns `false` on invalid configuration or timer allocation failure. |
+| `getCPM()` | Returns the rolling-average count rate. |
+| `getDoseRateUSvH()` | Returns CPM divided by the configured conversion factor. |
+| `getReading()` | Returns a consistent `RadiationDReading` snapshot. |
+| `getTotalCount()` / `resetTotalCount()` | Reads or clears the accepted-pulse total. |
+| `end()` | Stops the ESP timer, detaches the interrupt, and releases memory. |
 
-   - 60 Seconds: Standard setting. Updates relatively quickly but values may fluctuate at low background radiation levels (Poisson noise).
-
-   - 300 Seconds (5 mins): Recommended for measuring background radiation. Provides very stable readings but reacts slowly to sudden spikes.
+This project provides an indication from a hobby counter, not a calibrated
+dosimeter or a radiation-safety instrument.
