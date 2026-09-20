@@ -1,18 +1,18 @@
-# RadiationD Arduino Library for ESP32
+# RadiationD Arduino Library for ESP32 and ESP8266
 
 An interrupt-driven Arduino library for **RadiationD-v1.1** and compatible
-Geiger-Muller counter boards used with an ESP32. It counts active-low pulses,
-calculates CPM, and converts the rolling average to a configurable dose rate in
-micro-sieverts per hour (uSv/h).
+Geiger-Muller counter boards used with an ESP32 or ESP8266. It counts
+active-low pulses, calculates CPM, and converts the rolling average to a
+configurable dose rate in micro-sieverts per hour (uSv/h).
 
-This repository is an **ESP32 Arduino project and library**. It has no ESP-IDF
-or CMake project files.
+This repository is an **ESP32 and ESP8266 Arduino project and library**. It
+has no ESP-IDF or CMake project files.
 
 ## Features
 
 - GPIO falling-edge interrupt: no polling and no `loop()` update call required.
-- ESP32 one-second background timer, so readings remain correct while the
-  sketch performs other work or uses `delay()`.
+- Platform one-second timer: ESP32 uses `esp_timer`; ESP8266 uses a scheduled
+  `Ticker` callback.
 - Configurable rolling average from 1 to 3600 seconds.
 - Thread-safe reading snapshot with CPM, uSv/h, total pulses, and current
   filled averaging window.
@@ -22,15 +22,15 @@ or CMake project files.
 
 RadiationD-v1.1 type boards normally expose `5V`, `GND`, and `VIN`/`OUT`.
 
-| RadiationD board | ESP32 |
-| --- | --- |
-| `GND` | `GND` |
-| `VIN` / `OUT` | A suitable GPIO input, for example GPIO 4 |
-| `5V` | 5 V supply, if required by the board |
+| RadiationD board | ESP32 example | NodeMCU v3 / ESP8266 example |
+| --- | --- | --- |
+| `GND` | `GND` | `GND` |
+| `VIN` / `OUT` | GPIO 4 | `D5` / GPIO 14 |
+| `5V` | 5 V supply, if required by the board | 5 V supply, if required by the board |
 
-The ESP32 GPIO is **3.3 V only**. If the counter's pulse output reaches 5 V,
-add a proper level shifter or resistor divider before connecting it to the
-ESP32. Always share ground between the module and ESP32.
+ESP32 and ESP8266 GPIO pins are **3.3 V only**. If the counter's pulse output
+reaches 5 V, add a proper level shifter or resistor divider before connecting
+it to the microcontroller. Always share ground between the module and board.
 
 The pulse is expected to be active low, therefore the library attaches a
 falling-edge interrupt. Leave the internal pull-up disabled for a board with a
@@ -41,33 +41,37 @@ signal.
 
 1. Download this repository as a ZIP file.
 2. In Arduino IDE choose **Sketch -> Include Library -> Add .ZIP Library...**.
-3. Open **File -> Examples -> RadiationD -> BasicReadout**.
+3. Select the correct board package:
+   - **ESP32 by Espressif Systems** for ESP32 boards;
+   - **ESP8266 by ESP8266 Community** and **NodeMCU 1.0 (ESP-12E Module)** for
+     NodeMCU v3.
+4. Open the matching example from **File -> Examples -> RadiationD**.
 
 Alternatively, clone the repository into your Arduino sketchbook's
 `libraries/RadiationD` directory.
 
 ## Project layout
 
-- `examples/OLEDReadout/OLEDReadout.ino` — primary complete project: OLED
-  readout with CPM and mSv/h.
+- `examples/OLEDReadout/OLEDReadout.ino` — complete ESP32 OLED project.
+- `examples/OLEDReadoutESP8266/OLEDReadoutESP8266.ino` — complete NodeMCU v3
+  / ESP8266 OLED project.
 - `examples/BasicReadout/BasicReadout.ino` — serial-monitor-only example.
 - `src/` — the reusable `RadiationD` Arduino library.
 
-After installing the library, open the primary sketch through
-**File -> Examples -> RadiationD -> OLEDReadout**.
+For NodeMCU v3, open **File -> Examples -> RadiationD -> OLEDReadoutESP8266**.
 
 ## OLED readout (SSD1306, 128x64)
 
-The `OLEDReadout` example uses the same 0.96-inch I2C SSD1306 display layout
-as the [reference tutorial](https://randomnerdtutorials.com/micropython-oled-display-esp32-esp8266/):
-a 128x64 display at address `0x3C`, with the ESP32's default I2C pins.
+Both OLED examples use a 0.96-inch, 128x64 I2C SSD1306 display at address
+`0x3C`, following the wiring style in the
+[reference tutorial](https://randomnerdtutorials.com/micropython-oled-display-esp32-esp8266/).
 
-| SSD1306 OLED | ESP32 |
-| --- | --- |
-| `VCC` / `VIN` | `3.3 V` |
-| `GND` | `GND` |
-| `SCL` | GPIO 22 |
-| `SDA` | GPIO 21 |
+| SSD1306 OLED | ESP32 | NodeMCU v3 / ESP8266 |
+| --- | --- | --- |
+| `VCC` / `VIN` | `3.3 V` | `3.3 V` |
+| `GND` | `GND` | `GND` |
+| `SCL` | GPIO 22 | `D1` / GPIO 5 |
+| `SDA` | GPIO 21 | `D2` / GPIO 4 |
 
 Install **Adafruit SSD1306** and **Adafruit GFX Library** through Arduino IDE's
 Library Manager if they are not installed automatically. The display shows
@@ -97,8 +101,8 @@ void loop() {
 }
 ```
 
-`begin()` starts an ESP32 timer that samples the interrupt counter every second.
-There is no `update()` call to add to `loop()`.
+`begin()` starts the platform timer that samples the interrupt counter every
+second. There is no `update()` call to add to `loop()`.
 
 ## Calibration and averaging
 
