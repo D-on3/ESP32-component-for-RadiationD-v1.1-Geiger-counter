@@ -3,6 +3,13 @@
 #include <esp_err.h>
 #include <stdlib.h>
 
+// Definitions keep the constants link-safe for C++11 Arduino toolchains when
+// a sketch takes their address or otherwise odr-uses them.
+constexpr float RadiationD::J321_CPM_PER_USVH;
+constexpr uint16_t RadiationD::MIN_AVERAGING_SECONDS;
+constexpr uint16_t RadiationD::MAX_AVERAGING_SECONDS;
+constexpr uint64_t RadiationD::SAMPLE_PERIOD_US;
+
 RadiationD::~RadiationD() {
   end();
 }
