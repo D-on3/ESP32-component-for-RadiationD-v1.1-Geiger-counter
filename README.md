@@ -5,8 +5,8 @@ Geiger-Muller counter boards used with an ESP32. It counts active-low pulses,
 calculates CPM, and converts the rolling average to a configurable dose rate in
 micro-sieverts per hour (uSv/h).
 
-This is an ESP32 Arduino library. The previous ESP-IDF component is retained
-unchanged in [`extras/esp-idf-legacy`](extras/esp-idf-legacy).
+This repository is an **ESP32 Arduino project and library**. It has no ESP-IDF
+or CMake project files.
 
 ## Features
 
@@ -45,6 +45,16 @@ signal.
 
 Alternatively, clone the repository into your Arduino sketchbook's
 `libraries/RadiationD` directory.
+
+## Project layout
+
+- `examples/OLEDReadout/OLEDReadout.ino` — primary complete project: OLED
+  readout with CPM and mSv/h.
+- `examples/BasicReadout/BasicReadout.ino` — serial-monitor-only example.
+- `src/` — the reusable `RadiationD` Arduino library.
+
+After installing the library, open the primary sketch through
+**File -> Examples -> RadiationD -> OLEDReadout**.
 
 ## OLED readout (SSD1306, 128x64)
 
